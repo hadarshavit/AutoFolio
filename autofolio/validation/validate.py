@@ -1,6 +1,6 @@
 import logging
 
-from aslib_scenario.aslib_scenario import ASlibScenario
+from autofolio.aslib_scenario import ASlibScenario
 
 __author__ = "Marius Lindauer"
 __license__ = "BSD"
@@ -88,6 +88,38 @@ class Stats(object):
         self.logger.debug("Selection Frequency")
         for algo, n in self.selection_freq.items():
             self.logger.debug("%s: %.2f" %(algo, n/(timeouts + self.solved)))
+            
+        return par10 / n_samples
+    
+    def get_stats(self, remove_unsolvable: bool=True):
+        '''
+            shows statistics
+
+            Arguments
+            --------
+            remove_unsolvable : bool
+                remove unsolvable from stats
+                
+            Returns
+            -------
+            par10: int
+                penalized average runtime 
+        '''
+
+        if remove_unsolvable and self.runtime_cutoff:
+            timeouts = self.timeouts - self.unsolvable
+            par1 = self.par1 - (self.unsolvable * self.runtime_cutoff)
+            par10 = self.par10 - (self.unsolvable * self.runtime_cutoff * 10)
+        else:
+            timeouts = self.timeouts
+            par1 = self.par1
+            par10 = self.par10
+            
+        if self.runtime_cutoff:
+            n_samples = timeouts + self.solved
+        else:
+            n_samples = self.solved
+            par10 = par1
             
         return par10 / n_samples
 
@@ -198,8 +230,6 @@ class Validator(object):
         stat.par10 = stat.par1 + 9 * \
             test_scenario.algorithm_cutoff_time * stat.timeouts
         
-        stat.show()
-
         return stat
 
     def validate_quality(self, schedules: dict, test_scenario: ASlibScenario, 
@@ -248,7 +278,5 @@ class Validator(object):
             
             stat.par1 += perf
             stat.solved += 1
-        
-        stat.show(remove_unsolvable=False)
-        
+                
         return stat

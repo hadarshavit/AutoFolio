@@ -13,15 +13,14 @@ from ConfigSpace.configuration_space import Configuration, \
     ConfigurationSpace
 from ConfigSpace.hyperparameters import CategoricalHyperparameter, \
     UniformFloatHyperparameter, UniformIntegerHyperparameter
+from ConfigSpace import ForbiddenEqualsClause, ForbiddenAndConjunction
 
 # SMAC3
-from smac.tae.execute_func import ExecuteTAFuncDict
-from smac.scenario.scenario import Scenario
-from smac.stats.stats import Stats as AC_Stats
-from smac.facade.smac_hpo_facade import SMAC4HPO as SMAC
+from smac import Scenario
+from smac import HyperparameterOptimizationFacade as SMAC
 
 from autofolio.io.cmd import CMDParser
-from aslib_scenario.aslib_scenario import ASlibScenario
+from autofolio.aslib_scenario import ASlibScenario
 
 # feature preprocessing
 from autofolio.feature_preprocessing.pca import PCAWrapper
@@ -35,6 +34,7 @@ from autofolio.pre_solving.aspeed_schedule import Aspeed
 # classifiers
 from autofolio.selector.classifiers.random_forest import RandomForest
 from autofolio.selector.classifiers.xgboost import XGBoost
+from autofolio.selector.classifiers.tabpfn import TabPFN
 
 # regressors
 from autofolio.selector.regressors.random_forest import RandomForestRegressor
@@ -370,11 +370,22 @@ class AutoFolio(object):
             choices = [True, False]
         default = True
 
+        fs_params = {}
         for fs in allowed_feature_groups:
             
             fs_param = CategoricalHyperparameter(name="fgroup_%s" % (fs),
                 choices=choices, default_value=default)
             self.cs.add_hyperparameter(fs_param)
+            fs_params[fs] = fs_param
+        
+        # add a condition that ensures that at least one feature group is active
+        self.cs.add_forbidden_clause(ForbiddenAndConjunction(*[ForbiddenEqualsClause(fs_param, False) for fs_param in fs_params.values()]))
+
+        for group in allowed_feature_groups:
+            if scenario.feature_group_dict[group].get("requires"):
+                for req_group in scenario.feature_group_dict[group].get("requires"):
+                    self.cs.add_forbidden_clause(ForbiddenAndConjunction(ForbiddenEqualsClause(fs_params[req_group], False),
+                                                                        ForbiddenEqualsClause(fs_params[group], True)))
 
         # preprocessing
         if autofolio_config.get("pca", True):
@@ -397,8 +408,9 @@ class AutoFolio(object):
             cls_choices = [autofolio_config["classifier"]]
             cls_def = autofolio_config["classifier"]
         else:
-            cls_choices = ["RandomForest","XGBoost"]
+            cls_choices = ["RandomForest", "XGBoost", "TabPFN"]
             cls_def = "RandomForest"
+
         classifier = CategoricalHyperparameter(
                 "classifier", choices=cls_choices, 
                 default_value=cls_def)
@@ -407,6 +419,7 @@ class AutoFolio(object):
 
         RandomForest.add_params(self.cs)
         XGBoost.add_params(self.cs)
+        TabPFN.add_params(self.cs)
 
         if autofolio_config.get("regressor"):
             # fix parameter
@@ -427,7 +440,7 @@ class AutoFolio(object):
             sel_choices = [autofolio_config["selector"]]
             sel_def = autofolio_config["selector"]
         else:
-            sel_choices = ["PairwiseClassifier","PairwiseRegressor"]
+            sel_choices = ["PairwiseClassifier",]#"PairwiseRegressor"]
             sel_def = "PairwiseClassifier"
             
         selector = CategoricalHyperparameter(
@@ -436,7 +449,7 @@ class AutoFolio(object):
         PairwiseClassifier.add_params(self.cs)
         PairwiseRegression.add_params(self.cs)  
 
-        self.logger.debug(self.cs)
+        self.logger.info(self.cs)
 
         return self.cs
 
@@ -475,17 +488,16 @@ class AutoFolio(object):
         max_fold = scenario.cv_data.max().max()
         max_fold = int(max_fold)
 
-        ac_scenario = Scenario({"run_obj": "quality",  # we optimize quality
-                                "runcount-limit": runcount_limit,
-                                "cs": self.cs,  # configuration space
-                                "deterministic": "true",
-                                "instances": [[str(i)] for i in range(1, max_fold+1)],
-                                "wallclock-limit": wallclock_limit,
-                                "output-dir" : "" if not autofolio_config.get("output-dir",None) else autofolio_config.get("output-dir") 
-                                })
+        ac_scenario = Scenario(configspace=self.cs,
+                               deterministic=True,
+                               walltime_limit=wallclock_limit,
+                               n_trials=runcount_limit,
+                               trial_memory_limit=None,
+                               trial_walltime_limit=None,
+                               seed=seed,
+                               instances=[str(i) for i in range(1, max_fold+1)],
+                               output_directory="smac3_output" if not autofolio_config.get("output-dir",None) else autofolio_config.get("output-dir") )
 
-        # necessary to use stats options related to scenario information
-        AC_Stats.scenario = ac_scenario
 
         # Optimize
         self.logger.info(
@@ -493,8 +505,7 @@ class AutoFolio(object):
         self.logger.info("Start Configuration")
         self.logger.info(
             ">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>")
-        smac = SMAC(scenario=ac_scenario, tae_runner=taf,
-                    rng=np.random.RandomState(seed))
+        smac = SMAC(scenario=ac_scenario, target_function=taf)
         incumbent = smac.optimize()
 
         self.logger.info("Final Incumbent: %s" % (incumbent))
@@ -526,8 +537,12 @@ class AutoFolio(object):
         else:
             try:
                 stats = self.run_fold(config=config, scenario=scenario, fold=int(instance))
-                perf = stats.show()
+                perf = stats.get_stats()
             except ValueError:
+                self.logger.warn("Error in fold %s" % (instance))
+                import traceback
+                traceback.print_exc()
+                print('', flush=True)
                 if scenario.performance_type[0] == "runtime":
                     perf = scenario.algorithm_cutoff_time * 20
                 else:
@@ -561,14 +576,14 @@ class AutoFolio(object):
             else:
                 cv_stat = Stats(runtime_cutoff=0)
             for i in range(1, folds + 1):
-                self.logger.info("CV-Iteration: %d" % (i))
+                self.logger.debug("CV-Iteration: %d" % (i))
                 stats = self.run_fold(config=config,
                                       scenario=scenario,
                                       fold=i)
                 cv_stat.merge(stat=stats)
 
-            self.logger.info(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>")
-            self.logger.info("CV Stats")
+            self.logger.debug(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>")
+            self.logger.debug("CV Stats")
             par10 = cv_stat.show()
         except ValueError:
             traceback.print_exc()
@@ -659,7 +674,7 @@ class AutoFolio(object):
                 pre-solving object
                 fitted selector
         '''
-        self.logger.info("Given Configuration: %s" % (config))
+        self.logger.debug("Given Configuration: %s" % (config))
 
         if self.overwrite_args:
             config = self._overwrite_configuration(
@@ -791,6 +806,8 @@ class AutoFolio(object):
                 clf_class = RandomForest
             if config.get("classifier") == "XGBoost":
                 clf_class = XGBoost
+            if config.get("classifier") == "TabPFN":
+                clf_class = TabPFN
 
             selector = PairwiseClassifier(classifier_class=clf_class)
             selector.fit(scenario=scenario, config=config)
@@ -801,6 +818,8 @@ class AutoFolio(object):
                 clf_class = RandomForest
             if config.get("classifier") == "XGBoost":
                 clf_class = XGBoost
+            if config.get("classifier") == "TabPFN":
+                clf_class = TabPFN
 
             selector = MultiClassifier(classifier_class=clf_class)
             selector.fit(scenario=scenario, config=config)
@@ -850,7 +869,7 @@ class AutoFolio(object):
                 fitted selector object
         '''
 
-        self.logger.info("Predict on Test")
+        self.logger.info("Predict")
         for f_pre in feature_pre_pipeline:
             scenario = f_pre.transform(scenario)
 

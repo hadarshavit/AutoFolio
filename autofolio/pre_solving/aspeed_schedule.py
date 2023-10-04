@@ -13,7 +13,8 @@ from ConfigSpace.conditions import EqualsCondition, InCondition
 from ConfigSpace.configuration_space import ConfigurationSpace
 from ConfigSpace import Configuration
 
-from aslib_scenario.aslib_scenario import ASlibScenario
+from autofolio.aslib_scenario import ASlibScenario
+
 
 __author__ = "Marius Lindauer"
 __license__ = "BSD"
@@ -75,7 +76,7 @@ class Aspeed(object):
             self.enc_fn = enc_fn
 
         self.mem_limit = 2000  # mb
-        self.cutoff = 60
+        self.cutoff = 1
 
         self.data_threshold = 300  # minimal number of instances to use
         self.data_fraction = 0.3  # fraction of instances to use

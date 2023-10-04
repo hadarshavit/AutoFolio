@@ -7,7 +7,8 @@ from ConfigSpace.conditions import EqualsCondition, InCondition
 from ConfigSpace.configuration_space import ConfigurationSpace
 from ConfigSpace import Configuration
 
-from aslib_scenario.aslib_scenario import ASlibScenario
+from autofolio.aslib_scenario import ASlibScenario
+
 
 import sklearn.ensemble
 
@@ -100,7 +101,7 @@ class RandomForestRegressor(object):
                                             max_features=config[
                                                 "rfreg:max_features"] if config[
                                                 "rfreg:max_features"] != "None" else None,
-                                            max_depth=config["rf:max_depth"],
+                                            max_depth=config["rfreg:max_depth"],
                                             min_samples_split=config[
                                                 "rfreg:min_samples_split"],
                                             min_samples_leaf=config[

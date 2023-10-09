@@ -14,11 +14,9 @@ from ConfigSpace.configuration_space import Configuration, \
 from ConfigSpace.hyperparameters import CategoricalHyperparameter, \
     UniformFloatHyperparameter, UniformIntegerHyperparameter
 
-# SMAC3
-from smac.tae.execute_func import ExecuteTAFuncDict
-from smac.scenario.scenario import Scenario
-from smac.stats.stats import Stats as AC_Stats
-from smac.facade.smac_hpo_facade import SMAC4HPO as SMAC
+from smac import Scenario
+from smac import HyperparameterOptimizationFacade as SMAC
+
 
 from autofolio.io.cmd import CMDParser
 from aslib_scenario.aslib_scenario import ASlibScenario
@@ -475,17 +473,16 @@ class AutoFolio(object):
         max_fold = scenario.cv_data.max().max()
         max_fold = int(max_fold)
 
-        ac_scenario = Scenario({"run_obj": "quality",  # we optimize quality
-                                "runcount-limit": runcount_limit,
-                                "cs": self.cs,  # configuration space
-                                "deterministic": "true",
-                                "instances": [[str(i)] for i in range(1, max_fold+1)],
-                                "wallclock-limit": wallclock_limit,
-                                "output-dir" : "" if not autofolio_config.get("output-dir",None) else autofolio_config.get("output-dir") 
-                                })
+        ac_scenario = Scenario(configspace=self.cs,
+                               deterministic=True,
+                               walltime_limit=wallclock_limit,
+                               n_trials=runcount_limit,
+                               trial_memory_limit=None,
+                               trial_walltime_limit=None,
+                               seed=seed,
+                               instances=[str(i) for i in range(1, max_fold+1)],
+                               output_directory="smac3_output" if not autofolio_config.get("output-dir",None) else autofolio_config.get("output-dir") )
 
-        # necessary to use stats options related to scenario information
-        AC_Stats.scenario = ac_scenario
 
         # Optimize
         self.logger.info(
@@ -493,8 +490,7 @@ class AutoFolio(object):
         self.logger.info("Start Configuration")
         self.logger.info(
             ">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>")
-        smac = SMAC(scenario=ac_scenario, tae_runner=taf,
-                    rng=np.random.RandomState(seed))
+        smac = SMAC(scenario=ac_scenario, target_function=taf)
         incumbent = smac.optimize()
 
         self.logger.info("Final Incumbent: %s" % (incumbent))

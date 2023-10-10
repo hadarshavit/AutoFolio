@@ -128,18 +128,23 @@ class XGBoost(object):
         '''
         
         xgb_config = {'nthread': 1,
-         'silent': 1, 
+         'verbosity': 0, 
          'objective': 'binary:logistic',
          'seed': 12345}
         for param in config:
             if param.startswith("xgb:") and config[param] is not None:
                 self.attr.append("%s=%s"%(param[4:],config[param]))
+            else:
+                continue
             if param == "xgb:num_round":
                 continue
             xgb_config[param[4:]] = config[param]
             
         dtrain = xgb.DMatrix(X, label=y, weight=weights)
+        print(xgb_config, flush=True)
+        print(config, flush=True)
         self.model = xgb.train(xgb_config, dtrain, config["xgb:num_round"])
+        exit()
         
 
     def predict(self, X):

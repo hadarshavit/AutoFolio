@@ -31,7 +31,7 @@ class Stats(object):
 
         self.logger = logging.getLogger("Stats")
 
-    def show(self, remove_unsolvable: bool=True):
+    def show(self, remove_unsolvable: bool=True, log=False):
         '''
             shows statistics
 
@@ -45,13 +45,13 @@ class Stats(object):
             par10: int
                 penalized average runtime 
         '''
-
+        level = logging.INFO if not logg else logging.debug
         if remove_unsolvable and self.runtime_cutoff:
             rm_string = "removed"
-            self.logger.debug("Statistics before removing unsolvable instances")
-            self.logger.debug("PAR1: %.4f" %(self.par1 / (self.timeouts + self.solved)))
-            self.logger.debug("PAR10: %.4f" %(self.par10 / (self.timeouts + self.solved)))
-            self.logger.debug("Timeouts: %d / %d" %(self.timeouts, self.timeouts + self.solved))
+            self.logger.log(level, "Statistics before removing unsolvable instances")
+            self.logger.log(level, "PAR1: %.4f" %(self.par1 / (self.timeouts + self.solved)))
+            self.logger.log(level, "PAR10: %.4f" %(self.par10 / (self.timeouts + self.solved)))
+            self.logger.log(level, "Timeouts: %d / %d" %(self.timeouts, self.timeouts + self.solved))
             timeouts = self.timeouts - self.unsolvable
             par1 = self.par1 - (self.unsolvable * self.runtime_cutoff)
             par10 = self.par10 - (self.unsolvable * self.runtime_cutoff * 10)
@@ -67,23 +67,23 @@ class Stats(object):
             
         if self.runtime_cutoff:
             n_samples = timeouts + self.solved
-            self.logger.info("PAR1: %.4f" % (par1 / n_samples))
-            self.logger.info("PAR10: %.4f" % (par10 / n_samples))
-            self.logger.info("Timeouts: %d / %d" % (timeouts, n_samples))
-            self.logger.info("Presolved during feature computation: %d / %d" % (self.presolved_feats, n_samples))
-            self.logger.info("Solved: %d / %d" % (self.solved, n_samples))
-            self.logger.info("Unsolvable (%s): %d / %d" % 
+            self.logger.log(level, "PAR1: %.4f" % (par1 / n_samples))
+            self.logger.log(level, "PAR10: %.4f" % (par10 / n_samples))
+            self.logger.log(level, "Timeouts: %d / %d" % (timeouts, n_samples))
+            self.logger.log(level, "Presolved during feature computation: %d / %d" % (self.presolved_feats, n_samples))
+            self.logger.log(level, "Solved: %d / %d" % (self.solved, n_samples))
+            self.logger.log(level, "Unsolvable (%s): %d / %d" % 
                              (rm_string, self.unsolvable, n_samples+self.unsolvable))
         else:
             n_samples = self.solved
-            self.logger.info("Number of instances: %d" %(n_samples))
-            self.logger.info("Average Solution Quality: %.4f" % (par1 / n_samples))
+            self.logger.log(level, "Number of instances: %d" %(n_samples))
+            self.logger.log(level, "Average Solution Quality: %.4f" % (par1 / n_samples))
             par10 = par1
             
-        self.logger.info("Oracle: %.4f" %(oracle / n_samples))
+        self.logger.log(level, "Oracle: %.4f" %(oracle / n_samples))
         if sbs > 0:
-            self.logger.info("Single Best: %.4f" %(sbs / n_samples))
-            self.logger.info("Normalized Score: %.4f" %( ( par10 - oracle) / (sbs - oracle)))
+            self.logger.log(level, "Single Best: %.4f" %(sbs / n_samples))
+            self.logger.log(level, "Normalized Score: %.4f" %( ( par10 - oracle) / (sbs - oracle)))
             
         self.logger.debug("Selection Frequency")
         for algo, n in self.selection_freq.items():
@@ -198,7 +198,7 @@ class Validator(object):
         stat.par10 = stat.par1 + 9 * \
             test_scenario.algorithm_cutoff_time * stat.timeouts
         
-        stat.show()
+        stat.show(debug=True)
 
         return stat
 

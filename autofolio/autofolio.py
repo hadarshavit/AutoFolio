@@ -522,7 +522,7 @@ class AutoFolio(object):
         else:
             try:
                 stats = self.run_fold(config=config, scenario=scenario, fold=int(instance))
-                perf = stats.show()
+                perf = stats.show(log=True)
             except ValueError:
                 if scenario.performance_type[0] == "runtime":
                     perf = scenario.algorithm_cutoff_time * 20

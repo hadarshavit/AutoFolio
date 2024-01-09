@@ -411,7 +411,6 @@ class AutoFolio(object):
 
         RandomForest.add_params(self.cs)
         XGBoost.add_params(self.cs)
-        TabPFN.add_params(self.cs)
 
         if autofolio_config.get("regressor"):
             # fix parameter

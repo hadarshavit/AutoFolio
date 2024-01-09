@@ -256,18 +256,12 @@ class AutoFolio(object):
                 schedule_df.index.name = "instance"
                 schedule_df = schedule_df.reset_index()
 
-                # just keep the solver name; we don't care about the time
-
-                # x[0] gets the first pair in the schedule list
-                # and x[0][0] gets the name of the solver from that pair
-                schedule_df['solver'] = schedule_df['solver'].apply(lambda x: x[0][0])
-
-                selections_fn = out_template_.substitute(fold=cv_fold, type="csv")
+                selections_fn = out_template_.substitute(fold=cv_fold, type="pkldf")
 
                 msg = "Writing solver choices to: {}".format(selections_fn)
                 self.logger.info(msg)
 
-                schedule_df.to_csv(selections_fn, index=False)
+                schedule_df.to_pickle(selections_fn)
 
         self.logger.info(">>>>> Final Stats <<<<<")
         outer_stats.show()

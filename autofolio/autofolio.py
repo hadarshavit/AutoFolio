@@ -476,6 +476,7 @@ class AutoFolio(object):
         runcount_limit = autofolio_config.get("runcount_limit", runcount_limit)
 
         taf = functools.partial(self.called_by_smac, scenario=scenario)
+        taf.__code__ = self.called_by_smac.__code__
         max_fold = scenario.cv_data.max().max()
         max_fold = int(max_fold)
 
@@ -487,7 +488,7 @@ class AutoFolio(object):
                                trial_walltime_limit=None,
                                seed=seed,
                                instances=[str(i) for i in range(1, max_fold+1)],
-                               output_directory="smac3_output" if not autofolio_config.get("output-dir",None) else autofolio_config.get("output-dir") )
+                               output_directory="smac3_output" if not autofolio_config.get("output-dir", None) else autofolio_config.get("output-dir") )
 
 
         # Optimize

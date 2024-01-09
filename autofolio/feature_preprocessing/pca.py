@@ -56,6 +56,9 @@ class PCAWrapper(object):
         '''
 
         if config.get("pca"):
+            n_components = config.get("pca_n_components")
+            if n_components < scenario.feature_data.shape[0] or n_components < scenario.feature_data.shape[1]:
+                return
             self.pca = PCA(n_components=config.get("pca_n_components"))
             self.pca.fit(scenario.feature_data.values)
             self.active = True

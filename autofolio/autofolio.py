@@ -257,18 +257,12 @@ class AutoFolio(object):
                 schedule_df.index.name = "instance"
                 schedule_df = schedule_df.reset_index()
 
-                # just keep the solver name; we don't care about the time
-
-                # x[0] gets the first pair in the schedule list
-                # and x[0][0] gets the name of the solver from that pair
-                schedule_df['solver'] = schedule_df['solver'].apply(lambda x: x[0][0])
-
-                selections_fn = out_template_.substitute(fold=cv_fold, type="csv")
+                selections_fn = out_template_.substitute(fold=cv_fold, type="pkldf")
 
                 msg = "Writing solver choices to: {}".format(selections_fn)
                 self.logger.info(msg)
 
-                schedule_df.to_csv(selections_fn, index=False)
+                schedule_df.to_pickle(selections_fn)
 
         self.logger.info(">>>>> Final Stats <<<<<")
         outer_stats.show()
@@ -377,16 +371,15 @@ class AutoFolio(object):
                 choices=choices, default_value=default)
             self.cs.add_hyperparameter(fs_param)
             fs_params[fs] = fs_param
-        
-        # add a condition that ensures that at least one feature group is active
-        self.cs.add_forbidden_clause(ForbiddenAndConjunction(*[ForbiddenEqualsClause(fs_param, False) for fs_param in fs_params.values()]))
 
-        for group in allowed_feature_groups:
-            if scenario.feature_group_dict[group].get("requires"):
-                for req_group in scenario.feature_group_dict[group].get("requires"):
-                    self.cs.add_forbidden_clause(ForbiddenAndConjunction(ForbiddenEqualsClause(fs_params[req_group], False),
-                                                                        ForbiddenEqualsClause(fs_params[group], True)))
-
+        if False in choices:
+            self.cs.add_forbidden_clause(ForbiddenAndConjunction(*[ForbiddenEqualsClause(fs_param, False) for fs_param in fs_params.values()]))
+            for group in allowed_feature_groups:
+                if scenario.feature_group_dict[group].get("requires"):
+                    for req_group in scenario.feature_group_dict[group].get("requires"):
+                        self.cs.add_forbidden_clause(ForbiddenAndConjunction(ForbiddenEqualsClause(fs_params[req_group], False),
+                                                                            ForbiddenEqualsClause(fs_params[group], True)))
+                    
         # preprocessing
         if autofolio_config.get("pca", True):
             PCAWrapper.add_params(self.cs)
@@ -537,14 +530,13 @@ class AutoFolio(object):
         else:
             try:
                 stats = self.run_fold(config=config, scenario=scenario, fold=int(instance))
-                perf = stats.get_stats()
-            except ValueError:
-                self.logger.warn("Error in fold %s" % (instance))
+                perf = stats.show(log=False)
+            except ValueError as e:
                 import traceback
-                traceback.print_exc()
-                print('', flush=True)
+                traceback.print_stack()
+                
                 if scenario.performance_type[0] == "runtime":
-                    perf = scenario.algorithm_cutoff_time * 20
+                    perf = scenario.algorithm_cutoff_time * len(scenario.instances) * 20
                 else:
                     # try to impute a worst case perf
                     perf = scenario.performance_data.max().max()

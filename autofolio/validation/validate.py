@@ -45,7 +45,7 @@ class Stats(object):
             par10: int
                 penalized average runtime 
         '''
-        level = logging.INFO if not logg else logging.debug
+        level = logging.INFO if log else logging.DEBUG
         if remove_unsolvable and self.runtime_cutoff:
             rm_string = "removed"
             self.logger.log(level, "Statistics before removing unsolvable instances")

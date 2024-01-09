@@ -663,7 +663,7 @@ class AutoFolio(object):
                 pre-solving object
                 fitted selector
         '''
-        self.logger.info("Given Configuration: %s" % (config))
+        self.logger.debug("Given Configuration: %s" % (config))
 
         if self.overwrite_args:
             config = self._overwrite_configuration(

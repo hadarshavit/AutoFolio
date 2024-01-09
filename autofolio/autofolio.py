@@ -363,6 +363,7 @@ class AutoFolio(object):
             choices = [True, False]
         default = True
 
+        fs_params = {}
         for fs in allowed_feature_groups:
             
             fs_param = CategoricalHyperparameter(name="fgroup_%s" % (fs),
@@ -663,7 +664,7 @@ class AutoFolio(object):
                 pre-solving object
                 fitted selector
         '''
-        self.logger.debug("Given Configuration: %s" % (config))
+        self.logger.info("Given Configuration: %s" % (config))
 
         if self.overwrite_args:
             config = self._overwrite_configuration(

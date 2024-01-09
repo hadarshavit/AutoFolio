@@ -527,10 +527,13 @@ class AutoFolio(object):
         else:
             try:
                 stats = self.run_fold(config=config, scenario=scenario, fold=int(instance))
-                perf = stats.show(log=True)
-            except ValueError:
+                perf = stats.show(log=False)
+            except ValueError as e:
+                import traceback
+                traceback.print_stack()
+                
                 if scenario.performance_type[0] == "runtime":
-                    perf = scenario.algorithm_cutoff_time * 20
+                    perf = scenario.algorithm_cutoff_time * len(scenario.instances) * 20
                 else:
                     # try to impute a worst case perf
                     perf = scenario.performance_data.max().max()

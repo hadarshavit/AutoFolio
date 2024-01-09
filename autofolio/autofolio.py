@@ -13,6 +13,7 @@ from ConfigSpace.configuration_space import Configuration, \
     ConfigurationSpace
 from ConfigSpace.hyperparameters import CategoricalHyperparameter, \
     UniformFloatHyperparameter, UniformIntegerHyperparameter
+from ConfigSpace import ForbiddenEqualsClause, ForbiddenAndConjunction
 
 from smac import Scenario
 from smac import HyperparameterOptimizationFacade as SMAC
@@ -373,6 +374,16 @@ class AutoFolio(object):
             fs_param = CategoricalHyperparameter(name="fgroup_%s" % (fs),
                 choices=choices, default_value=default)
             self.cs.add_hyperparameter(fs_param)
+            fs_params[fs] = fs_param
+
+        if False in choices:
+            self.cs.add_forbidden_clause(ForbiddenAndConjunction(*[ForbiddenEqualsClause(fs_param, False) for fs_param in fs_params.values()]))
+            for group in allowed_feature_groups:
+                if scenario.feature_group_dict[group].get("requires"):
+                    for req_group in scenario.feature_group_dict[group].get("requires"):
+                        self.cs.add_forbidden_clause(ForbiddenAndConjunction(ForbiddenEqualsClause(fs_params[req_group], False),
+                                                                            ForbiddenEqualsClause(fs_params[group], True)))
+                    
 
         # preprocessing
         if autofolio_config.get("pca", True):

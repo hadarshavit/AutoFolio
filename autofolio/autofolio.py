@@ -15,12 +15,12 @@ from ConfigSpace.hyperparameters import CategoricalHyperparameter, \
     UniformFloatHyperparameter, UniformIntegerHyperparameter
 from ConfigSpace import ForbiddenEqualsClause, ForbiddenAndConjunction
 
+# SMAC3
 from smac import Scenario
 from smac import HyperparameterOptimizationFacade as SMAC
 
-
 from autofolio.io.cmd import CMDParser
-from aslib_scenario.aslib_scenario import ASlibScenario
+from autofolio.aslib_scenario import ASlibScenario
 
 # feature preprocessing
 from autofolio.feature_preprocessing.pca import PCAWrapper
@@ -34,6 +34,7 @@ from autofolio.pre_solving.aspeed_schedule import Aspeed
 # classifiers
 from autofolio.selector.classifiers.random_forest import RandomForest
 from autofolio.selector.classifiers.xgboost import XGBoost
+from autofolio.selector.classifiers.tabpfn import TabPFN
 
 # regressors
 from autofolio.selector.regressors.random_forest import RandomForestRegressor
@@ -379,7 +380,6 @@ class AutoFolio(object):
                         self.cs.add_forbidden_clause(ForbiddenAndConjunction(ForbiddenEqualsClause(fs_params[req_group], False),
                                                                             ForbiddenEqualsClause(fs_params[group], True)))
                     
-
         # preprocessing
         if autofolio_config.get("pca", True):
             PCAWrapper.add_params(self.cs)
@@ -401,8 +401,9 @@ class AutoFolio(object):
             cls_choices = [autofolio_config["classifier"]]
             cls_def = autofolio_config["classifier"]
         else:
-            cls_choices = ["RandomForest","XGBoost"]
+            cls_choices = ["RandomForest", "XGBoost", "TabPFN"]
             cls_def = "RandomForest"
+
         classifier = CategoricalHyperparameter(
                 "classifier", choices=cls_choices, 
                 default_value=cls_def)
@@ -411,6 +412,7 @@ class AutoFolio(object):
 
         RandomForest.add_params(self.cs)
         XGBoost.add_params(self.cs)
+        TabPFN.add_params(self.cs)
 
         if autofolio_config.get("regressor"):
             # fix parameter
@@ -431,7 +433,7 @@ class AutoFolio(object):
             sel_choices = [autofolio_config["selector"]]
             sel_def = autofolio_config["selector"]
         else:
-            sel_choices = ["PairwiseClassifier","PairwiseRegressor"]
+            sel_choices = ["PairwiseClassifier",]#"PairwiseRegressor"]
             sel_def = "PairwiseClassifier"
             
         selector = CategoricalHyperparameter(
@@ -440,7 +442,7 @@ class AutoFolio(object):
         PairwiseClassifier.add_params(self.cs)
         PairwiseRegression.add_params(self.cs)  
 
-        self.logger.debug(self.cs)
+        self.logger.info(self.cs)
 
         return self.cs
 
@@ -566,14 +568,14 @@ class AutoFolio(object):
             else:
                 cv_stat = Stats(runtime_cutoff=0)
             for i in range(1, folds + 1):
-                self.logger.info("CV-Iteration: %d" % (i))
+                self.logger.debug("CV-Iteration: %d" % (i))
                 stats = self.run_fold(config=config,
                                       scenario=scenario,
                                       fold=i)
                 cv_stat.merge(stat=stats)
 
-            self.logger.info(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>")
-            self.logger.info("CV Stats")
+            self.logger.debug(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>")
+            self.logger.debug("CV Stats")
             par10 = cv_stat.show()
         except ValueError:
             traceback.print_exc()
@@ -664,7 +666,7 @@ class AutoFolio(object):
                 pre-solving object
                 fitted selector
         '''
-        self.logger.info("Given Configuration: %s" % (config))
+        self.logger.debug("Given Configuration: %s" % (config))
 
         if self.overwrite_args:
             config = self._overwrite_configuration(
@@ -796,6 +798,8 @@ class AutoFolio(object):
                 clf_class = RandomForest
             if config.get("classifier") == "XGBoost":
                 clf_class = XGBoost
+            if config.get("classifier") == "TabPFN":
+                clf_class = TabPFN
 
             selector = PairwiseClassifier(classifier_class=clf_class)
             selector.fit(scenario=scenario, config=config)
@@ -806,6 +810,8 @@ class AutoFolio(object):
                 clf_class = RandomForest
             if config.get("classifier") == "XGBoost":
                 clf_class = XGBoost
+            if config.get("classifier") == "TabPFN":
+                clf_class = TabPFN
 
             selector = MultiClassifier(classifier_class=clf_class)
             selector.fit(scenario=scenario, config=config)
@@ -855,7 +861,7 @@ class AutoFolio(object):
                 fitted selector object
         '''
 
-        self.logger.info("Predict on Test")
+        self.logger.info("Predict")
         for f_pre in feature_pre_pipeline:
             scenario = f_pre.transform(scenario)
 

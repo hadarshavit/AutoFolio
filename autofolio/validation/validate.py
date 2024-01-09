@@ -45,7 +45,7 @@ class Stats(object):
             par10: int
                 penalized average runtime 
         '''
-        level = logging.INFO if log else logging.DEBUG
+        level = logging.INFO if not logg else logging.debug
         if remove_unsolvable and self.runtime_cutoff:
             rm_string = "removed"
             self.logger.log(level, "Statistics before removing unsolvable instances")
@@ -198,8 +198,6 @@ class Validator(object):
         stat.par10 = stat.par1 + 9 * \
             test_scenario.algorithm_cutoff_time * stat.timeouts
         
-        stat.show(debug=True)
-
         return stat
 
     def validate_quality(self, schedules: dict, test_scenario: ASlibScenario, 

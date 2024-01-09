@@ -34,7 +34,6 @@ from autofolio.pre_solving.aspeed_schedule import Aspeed
 # classifiers
 from autofolio.selector.classifiers.random_forest import RandomForest
 from autofolio.selector.classifiers.xgboost import XGBoost
-from autofolio.selector.classifiers.tabpfn import TabPFN
 
 # regressors
 from autofolio.selector.regressors.random_forest import RandomForestRegressor
@@ -401,7 +400,7 @@ class AutoFolio(object):
             cls_choices = [autofolio_config["classifier"]]
             cls_def = autofolio_config["classifier"]
         else:
-            cls_choices = ["RandomForest", "XGBoost", "TabPFN"]
+            cls_choices = ["RandomForest", "XGBoost"]
             cls_def = "RandomForest"
 
         classifier = CategoricalHyperparameter(

@@ -141,11 +141,8 @@ class XGBoost(object):
             xgb_config[param[4:]] = config[param]
             
         dtrain = xgb.DMatrix(X, label=y, weight=weights)
-        print(xgb_config, flush=True)
-        print(config, flush=True)
-        self.model = xgb.train(xgb_config, dtrain, config["xgb:num_round"])
-        exit()
-        
+
+        self.model = xgb.train(xgb_config, dtrain, config["xgb:num_round"])        
 
     def predict(self, X):
         '''
